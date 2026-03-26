@@ -237,6 +237,26 @@
     let provider, signer;
     let _lastAgreement = null;
 
+    function fmtEth(v) {
+      return ethers.formatEther(v);
+    }
+
+    async function notifyUser(message) {
+      try {
+        if (!("Notification" in window)) return;
+        if (Notification.permission === "granted") {
+          new Notification(message);
+          return;
+        }
+        if (Notification.permission !== "denied") {
+          const p = await Notification.requestPermission();
+          if (p === "granted") new Notification(message);
+        }
+      } catch {
+        // ignore browser notification failures
+      }
+    }
+
     function setWithdrawUi({ disabled, reason, success }) {
       const btn = $("btnWithdraw");
       if (!btn) return;
@@ -457,7 +477,8 @@
         const c = contractRead();
         await assertAddressIsContract(ca);
         const n = await c.nextAgreementId();
-        log(`nextAgreementId (count): ${n.toString()} — last id is ${(BigInt(n) - 1n).toString()} if n > 0`, "ok");
+        const last = n > 0n ? (n - 1n).toString() : "none yet";
+        log(`nextAgreementId (count): ${n.toString()} — last id: ${last}`, "ok");
       } catch (e) {
         log(String(e.shortMessage || e.message || e), "err");
       }
@@ -480,12 +501,14 @@
         if (ethers.isAddress(addr)) await assertAddressIsContract(addr);
         // Requested debug logs (console) + Activity log.
         console.log(`Calling ${label}...`);
+        log(`MetaMask: confirm ${label} transaction popup`, "ok");
         log(`${label} — sending…`);
         const tx = await fn();
         log(`tx: ${tx.hash}`);
         await tx.wait();
         console.log(`${label} successful`);
         log(`${label} — confirmed`, "ok");
+        await notifyUser(`${label} successful`);
         await refreshStatus();
       } catch (e) {
         log(`${label} — ${friendlyReadError(e)}`, "err");
@@ -552,6 +575,8 @@
           const tx = await c.registerTenant();
           log(`tx: ${tx.hash}`);
           await tx.wait();
+          $("tenantAddr").value = me;
+          log(`Tenant address auto-filled: ${me}`, "ok");
           log("registerTenant — confirmed. Next: landlord wallet → Landlord button, then tenant → Tenant button again.", "ok");
           await refreshStatus();
           return;
@@ -597,10 +622,23 @@
 
     $("btnPayRent").onclick = async () => {
       try {
-        const rent = ethers.parseEther($("rentEth").value.trim() || "0");
-        await sendTx("payRent", () =>
-          contractAt(false).payRent(agreementIdBigInt(), { value: rent })
-        );
+        const id = agreementIdBigInt();
+        const cRead = contractRead();
+        const a = await cRead.agreements(id);
+        const landlordBefore = await provider.getBalance(a.landlord);
+        const rent = a.rentAmount;
+        log("MetaMask: confirm payRent transaction popup", "ok");
+        console.log("Calling payRent...");
+        const tx = await contractAt(false).payRent(id, { value: rent });
+        log(`payRent tx: ${tx.hash}`);
+        await tx.wait();
+        console.log("payRent successful");
+        const landlordAfter = await provider.getBalance(a.landlord);
+        const diff = landlordAfter - landlordBefore;
+        log(`Rent paid successfully: ${fmtEth(rent)} ETH`, "ok");
+        log(`Landlord balance change (approx): ${fmtEth(diff)} ETH`, "ok");
+        await notifyUser(`Rent paid: ${fmtEth(rent)} ETH`);
+        await refreshStatus();
       } catch (e) {
         log(friendlyReadError(e), "err");
       }
@@ -641,7 +679,24 @@
           }
         }
 
-        await sendTx("withdrawDeposit", () => contractAt(false).withdrawDeposit(id));
+        const recipient = a.terminatedEarly ? a.tenant : a.landlord;
+        const recipientBefore = await provider.getBalance(recipient);
+        const contractBefore = await provider.getBalance($("contractAddr").value.trim());
+        const expected = a.depositAmount;
+        log("MetaMask: confirm withdrawDeposit transaction popup", "ok");
+        console.log("Calling withdraw...");
+        const tx = await contractAt(false).withdrawDeposit(id);
+        log(`withdrawDeposit tx: ${tx.hash}`);
+        await tx.wait();
+        console.log("Withdraw successful");
+        const recipientAfter = await provider.getBalance(recipient);
+        const contractAfter = await provider.getBalance($("contractAddr").value.trim());
+        const recipientDiff = recipientAfter - recipientBefore;
+        log(`Deposit withdrawn successfully: ${fmtEth(expected)} ETH`, "ok");
+        log(`Recipient balance change (approx): ${fmtEth(recipientDiff)} ETH`, "ok");
+        log(`Contract balance: ${fmtEth(contractBefore)} -> ${fmtEth(contractAfter)} ETH`, "ok");
+        await notifyUser(`Deposit withdrawn: ${fmtEth(expected)} ETH`);
+        await refreshStatus();
         if (_lastAgreement && _lastAgreement.a && _lastAgreement.a.depositReleased) {
           setWithdrawUi({ disabled: true, reason: "Deposit already withdrawn.", success: true });
         }
