@@ -1,0 +1,16 @@
+{
+  "name": "rental-agreement-dapp",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "compile": "hardhat compile",
+    "deploy": "hardhat run scripts/deploy.js",
+    "demo": "hardhat run scripts/rental-demo.js",
+    "all": "npm run compile && npm run deploy && npm run demo",
+    "ui": "npx --yes serve@14 -l 5500 ui"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.22.0"
+  }
+}

@@ -1,0 +1,134 @@
+================================================================================
+  RENTAL AGREEMENT DAPP — RUNNING FORMAT (copy/paste for terminal demo)
+================================================================================
+
+WHERE TO RUN
+------------
+  Folder:  the project root (same folder as package.json)
+  Example:  c:\Users\Nitro V15\Downloads\aab
+
+
+MATCHING YOUR TWO WINDOWS (UI + POWERSHELL)
+---------------------------------------------
+  Screenshot A (browser): Contract field shows 0xf39F… → that is the DEPLOYER
+  WALLET from the terminal, NOT the contract. The UI warns on purpose.
+
+  Screenshot B (PowerShell): Each
+      npx hardhat run scripts/deploy.js --network localhost
+  deploys a NEW contract at a NEW address. Use the LATEST line only, e.g.:
+      RentalAgreement deployed to: 0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e
+
+  After deploy, open file:  deployed-address.txt  (first line = contract only).
+
+  MetaMask must show chainId 31337 (Hardhat). ChainId 1 = wrong = mainnet.
+
+
+FIRST TIME ONLY
+---------------
+  Open PowerShell or CMD, then:
+
+    cd "c:\Users\Nitro V15\Downloads\aab"
+    npm install
+
+
+EVERY TIME YOU WANT THE FULL SHOW (compile + deploy log + full demo)
+--------------------------------------------------------------------
+  Option A — one command (recommended):
+
+    cd "c:\Users\Nitro V15\Downloads\aab"
+    npm run all
+
+  Option B — step by step:
+
+    cd "c:\Users\Nitro V15\Downloads\aab"
+    npm run compile
+    npm run deploy
+    npm run demo
+
+  Exit code should be 0. Last line of demo should be:
+    ========== DONE — no errors ==========
+
+
+================================================================================
+  ACTUAL RUN OUTPUT (recorded from a successful run on this project)
+================================================================================
+
+--- Command: npm run compile ---
+
+> rental-agreement-dapp@1.0.0 compile
+> hardhat compile
+
+Nothing to compile
+
+  (Note: If you changed the .sol file, you will see "Compiled N Solidity file(s) successfully" instead.)
+
+--- Command: npm run deploy ---
+
+> rental-agreement-dapp@1.0.0 deploy
+> hardhat run scripts/deploy.js
+
+Deploying with: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+RentalAgreement deployed to: 0x5FbDB2315678afecb367f032d93F642f64180aa3
+
+--- Command: npm run demo ---
+
+> rental-agreement-dapp@1.0.0 demo
+> hardhat run scripts/rental-demo.js
+
+
+========== COMPILE & DEPLOY ==========
+Contract deployed at: 0x5FbDB2315678afecb367f032d93F642f64180aa3
+
+========== REGISTER ROLES ==========
+Landlord registered: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+Tenant registered:  0x70997970C51812dc3A010C7d01b50e0d17dc79C8
+
+========== CREATE & SIGN AGREEMENT ==========
+Agreement ID: 0 (first agreement)
+Tenant signed agreement.
+
+========== DEPOSIT (tenant -> contract) ==========
+Contract ETH before deposit: 0.0
+Contract ETH after deposit:  0.002
+getHeldDeposit(agreementId):  0.002
+depositPaid (on-chain):       true
+
+========== PAY RENT (tenant -> landlord) ==========
+Landlord balance increased by rent (minus gas is visible on-chain): OK
+  (approx rent) 0.001
+
+========== ADVANCE TIME PAST endDate ==========
+Time moved past endDate so landlord can withdraw deposit.
+
+========== WITHDRAW DEPOSIT (landlord <- contract) ==========
+Contract ETH before withdraw: 0.002
+Contract ETH after withdraw:  0.0 (deposit sent out)
+depositReleased (on-chain):    true
+Landlord received deposit (balance change includes gas). Flow: OK
+
+========== DONE — no errors ==========
+
+
+================================================================================
+  WHAT THIS PROVES (for reports / teacher)
+================================================================================
+  • compile     — Smart contract builds with Hardhat / Solidity 0.8.20
+  • deploy      — Contract deploys; address printed
+  • demo        — End-to-end: roles, agreement, tiny test deposit (0.002 fake ETH),
+                  tiny test rent (0.001), time advanced, deposit withdrawn,
+                  contract balance 0 ETH, depositReleased = true on-chain
+
+WEB UI (custom rent / deposit / duration) — testing only, no real money
+-------------------------------------------
+  Terminal 1:  npx hardhat node
+  Terminal 2:  npx hardhat run scripts/deploy.js --network localhost
+  Terminal 3:  npm run ui
+  Browser:     URL printed by serve (open .../index.html)
+  → Paste contract address, connect MetaMask to localhost, use Activity log.
+  → Defaults: rent 0.001, deposit 0.002, 120 s lease, skip time 200 s
+  → UI section 3: Tenant button first, then Landlord, then Tenant again (sign+deposit).
+
+
+================================================================================
+  End of RUNNING.txt
+================================================================================

@@ -1,0 +1,5 @@
+0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
+
+Paste ONLY the first line above into the DApp Contract address field.
+Do NOT paste the deployer line (0xf39F...) — that is a wallet, not the contract.
+MetaMask network: Localhost 8545, Chain ID 31337 (not Ethereum mainnet).
