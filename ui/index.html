@@ -505,6 +505,9 @@
         if (!(await cr.isTenant(tenant))) {
           throw new Error("Tenant must register first: switch to tenant wallet and click the Tenant button once.");
         }
+        if (tenant.toLowerCase() === me.toLowerCase()) {
+          throw new Error("Landlord and tenant must be different addresses. Switch MetaMask account before landlord action.");
+        }
         if (!(await cr.isLandlord(me))) {
           log("registerLandlord — sending…");
           const tx = await c.registerLandlord();
@@ -604,20 +607,46 @@
     };
 
     $("btnWithdraw").onclick = async () => {
-      // Extra UX: prevent “nothing happens” feeling if user forgot refresh/state.
       try {
+        if (!signer) throw new Error("Connect wallet first.");
         const id = agreementIdBigInt();
-        if (_lastAgreement && _lastAgreement.id === id && _lastAgreement.a && _lastAgreement.a.depositReleased) {
+        const cRead = contractRead();
+        const next = await cRead.nextAgreementId();
+        if (next === 0n || id >= next) {
+          throw new Error("Agreement does not exist. Create agreement first.");
+        }
+        const a = await cRead.agreements(id);
+        const me = (await signer.getAddress()).toLowerCase();
+
+        if (!a.depositPaid) throw new Error("Deposit not paid yet.");
+        if (a.depositReleased) {
           setWithdrawUi({ disabled: true, reason: "Deposit already withdrawn.", success: false });
           return;
         }
-      } catch {
-        // ignore
-      }
-      await sendTx("withdrawDeposit", () => contractAt(false).withdrawDeposit(agreementIdBigInt()));
-      // After confirmed, refreshStatus already ran; if it shows depositReleased true, show success.
-      if (_lastAgreement && _lastAgreement.a && _lastAgreement.a.depositReleased) {
-        setWithdrawUi({ disabled: true, reason: "Deposit already withdrawn.", success: true });
+
+        // Pre-check role/time so user understands why tx might fail.
+        const latestBlock = await provider.getBlock("latest");
+        const nowTs = BigInt(latestBlock.timestamp);
+        if (a.terminatedEarly) {
+          if (me !== a.tenant.toLowerCase()) {
+            throw new Error("Early terminated agreement: only tenant can withdraw deposit.");
+          }
+        } else {
+          if (me !== a.landlord.toLowerCase()) {
+            throw new Error("Only landlord can withdraw after natural lease end. Switch to landlord account.");
+          }
+          if (nowTs < a.endDate) {
+            const remaining = Number(a.endDate - nowTs);
+            throw new Error(`Lease not ended yet. Use Skip time for at least ${remaining} more seconds, then withdraw.`);
+          }
+        }
+
+        await sendTx("withdrawDeposit", () => contractAt(false).withdrawDeposit(id));
+        if (_lastAgreement && _lastAgreement.a && _lastAgreement.a.depositReleased) {
+          setWithdrawUi({ disabled: true, reason: "Deposit already withdrawn.", success: true });
+        }
+      } catch (e) {
+        log(friendlyReadError(e), "err");
       }
     };
 
